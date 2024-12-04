@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql-formatter/4.0.2/sql-formatter.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="sql-entries card">
+        <div class="table-header">
+            <div class="header-content">
+                <div class="left-actions">
+                    <button onclick="showAddForm()" class="action-button add" title="新建">
+                        <i class="fas fa-plus"></i>
+                        <span>新建SQL</span>
+                    </button>
+                </div>
+                <div class="right-actions">
+                    <!-- 如果需要添加右侧按钮可以放在这里 -->
+                </div>
+            </div>
+        </div>
+        <table class="sql-table">
+            <thead>
+                <tr>
+                    <th width="15%">SQL名称</th>
+                    <th width="40%">SQL内容</th>
+                    <th width="10%">业务领域</th>
+                    <th width="10%">业务分类</th>
+                    <th width="10%">联系人</th>
+                    <th width="15%">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in sql_entries %}
+                <tr class="sql-row">
+                    <td class="sql-name">{{ entry.name }}</td>
+                    <td class="sql-content-cell">
+                        <div class="sql-preview" onclick="showDetails({{ entry.id }})">
+                            <pre><code class="sql">{{ entry.sql_query[:150] + '...' if entry.sql_query|length > 150 else entry.sql_query }}</code></pre>
+                            <span class="view-more" style="display: none;">点击查看更多</span>
+                        </div>
+                    </td>
+                    <td>{{ entry.business_domain }}</td>
+                    <td>{{ entry.business_category }}</td>
+                    <td>{{ entry.contact }}</td>
+                    <td class="action-buttons">
+                        <div class="action-buttons-group">
+                            <button onclick="editEntry({{ entry.id }})" class="action-button edit" title="编辑">
+                                <i class="fas fa-edit"></i>
+                                <span>编辑</span>
+                            </button>
+                            <button onclick="deleteEntry({{ entry.id }})" class="action-button delete" title="删除">
+                                <i class="fas fa-trash"></i>
+                                <span>删除</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SQL详情对话框 -->
+<div id="details-dialog" class="dialog" style="display: none;">
+    <div class="dialog-content rounded">
+        <div class="dialog-header">
+            <h2>SQL详情</h2>
+            <button onclick="closeDetailsDialog()" class="icon-button close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="dialog-body">
+            <div class="detail-section">
+                <h3>SQL语句</h3>
+                <pre><code id="detail-sql-content" class="sql"></code></pre>
+            </div>
+            <div class="detail-section">
+                <h3>SQL备注</h3>
+                <p id="detail-description"></p>
+            </div>
+            <div class="detail-section">
+                <h3>数据表信息</h3>
+                <p id="detail-table-info"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SQL表单对话框 -->
+<div id="sql-form-dialog" class="dialog" style="display: none;">
+    <div class="dialog-content rounded">
+        <div class="dialog-header">
+            <div class="dialog-title">
+                <h2 id="dialog-title">新建SQL</h2>
+            </div>
+            <button onclick="closeDialog()" class="close-button" title="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="dialog-body">
+            <form id="sql-form" class="edit-form">
+                <input type="hidden" id="entry-id">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">SQL名称:</label>
+                            <input type="text" id="name" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="business-domain">业务领域:</label>
+                            <input type="text" id="business-domain">
+                        </div>
+                        <div class="form-group half">
+                            <label for="business-category">业务分类:</label>
+                            <input type="text" id="business-category">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="sql-query">SQL语句:</label>
+                        <div class="code-editor-wrapper">
+                            <div class="editor-toolbar">
+                                <button type="button" class="action-button format" onclick="formatNewSQL()">
+                                    <i class="fas fa-code"></i>
+                                    <span>格式化</span>
+                                </button>
+                            </div>
+                            <pre><code id="sql-preview" class="sql"></code></pre>
+                            <textarea id="sql-query" required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="description">SQL备注:</label>
+                        <textarea id="description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="table-info">数据表信息:</label>
+                        <textarea id="table-info" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact">联系人:</label>
+                        <input type="text" id="contact">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeDialog()" class="action-button cancel">
+                        <i class="fas fa-times"></i>
+                        <span>取消</span>
+                    </button>
+                    <button type="submit" class="action-button save">
+                        <i class="fas fa-save"></i>
+                        <span>保存</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 添加Font Awesome图标库 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+<!-- 修改编辑对话框部分 -->
+<div id="edit-dialog" class="dialog" style="display: none;">
+    <div class="dialog-content rounded">
+        <div class="dialog-header">
+            <div class="dialog-title">
+                <h2>编辑SQL</h2>
+                <span class="sql-name-display"></span>
+            </div>
+            <button onclick="closeEditDialog()" class="close-button" title="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="dialog-body">
+            <form id="edit-form" class="edit-form">
+                <input type="hidden" id="edit-id">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-name">SQL名称:</label>
+                            <input type="text" id="edit-name" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="edit-business-domain">业务领域:</label>
+                            <input type="text" id="edit-business-domain">
+                        </div>
+                        <div class="form-group half">
+                            <label for="edit-business-category">业务分类:</label>
+                            <input type="text" id="edit-business-category">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="edit-sql-query">SQL语句:</label>
+                        <div class="code-editor-wrapper">
+                            <div class="editor-toolbar">
+                                <button type="button" class="action-button format" onclick="formatCurrentSQL()">
+                                    <i class="fas fa-code"></i>
+                                    <span>格��化</span>
+                                </button>
+                            </div>
+                            <pre><code id="edit-sql-preview" class="sql"></code></pre>
+                            <textarea id="edit-sql-query" required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="edit-description">SQL备注:</label>
+                        <textarea id="edit-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-table-info">数据表信息:</label>
+                        <textarea id="edit-table-info" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-contact">联系人:</label>
+                        <input type="text" id="edit-contact">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditDialog()" class="action-button cancel">
+                        <i class="fas fa-times"></i>
+                        <span>取消</span>
+                    </button>
+                    <button type="submit" class="action-button save">
+                        <i class="fas fa-save"></i>
+                        <span>保存修改</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAddForm() {
+    document.getElementById('dialog-title').textContent = '新建SQL';
+    document.getElementById('entry-id').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('business-domain').value = '';
+    document.getElementById('business-category').value = '';
+    document.getElementById('sql-query').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('table-info').value = '';
+    document.getElementById('contact').value = '';
+    document.getElementById('sql-form-dialog').style.display = 'block';
+}
+
+function closeDialog() {
+    document.getElementById('sql-form-dialog').style.display = 'none';
+}
+
+function loadQuery(query) {
+    document.getElementById('sql-input').value = query;
+}
+
+function showDetails(id) {
+    fetch(`/sql_entry/${id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正确');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                const data = result.data;
+                const formattedSQL = formatSQL(data.sql_query);
+                const sqlElement = document.getElementById('detail-sql-content');
+                sqlElement.textContent = formattedSQL;
+                hljs.highlightElement(sqlElement);
+                
+                document.getElementById('detail-description').textContent = data.description || '暂无备注';
+                document.getElementById('detail-table-info').textContent = data.table_info || '暂无表信息';
+                document.getElementById('details-dialog').style.display = 'block';
+            } else {
+                throw new Error(result.message || '加载数据失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('加载SQL详情失败: ' + error.message);
+        });
+}
+
+function closeDetailsDialog() {
+    document.getElementById('details-dialog').style.display = 'none';
+}
+
+function editEntry(id) {
+    fetch(`/sql_entry/${id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正确');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                const data = result.data;
+                document.querySelector('.sql-name-display').textContent = data.name;
+                
+                document.getElementById('edit-id').value = id;
+                document.getElementById('edit-name').value = data.name || '';
+                document.getElementById('edit-business-domain').value = data.business_domain || '';
+                document.getElementById('edit-business-category').value = data.business_category || '';
+                
+                const formattedSQL = formatSQL(data.sql_query || '');
+                document.getElementById('edit-sql-query').value = data.sql_query || '';
+                const previewElement = document.getElementById('edit-sql-preview');
+                previewElement.textContent = formattedSQL;
+                hljs.highlightElement(previewElement);
+                
+                document.getElementById('edit-description').value = data.description || '';
+                document.getElementById('edit-table-info').value = data.table_info || '';
+                document.getElementById('edit-contact').value = data.contact || '';
+                
+                document.getElementById('edit-dialog').style.display = 'block';
+                document.getElementById('edit-name').focus();
+            } else {
+                throw new Error(result.message || '加载数据失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('加载SQL信息失败: ' + error.message);
+        });
+}
+
+function closeEditDialog() {
+    document.getElementById('edit-dialog').style.display = 'none';
+    document.getElementById('edit-form').reset();
+    document.querySelector('.sql-name-display').textContent = '';
+}
+
+function formatCurrentSQL() {
+    const sqlInput = document.getElementById('edit-sql-query');
+    const formattedSQL = formatSQL(sqlInput.value);
+    sqlInput.value = formattedSQL;
+    
+    const previewElement = document.getElementById('edit-sql-preview');
+    previewElement.textContent = formattedSQL;
+    hljs.highlightElement(previewElement);
+}
+
+document.getElementById('edit-sql-query').addEventListener('input', function(e) {
+    const formattedSQL = formatSQL(e.target.value);
+    const previewElement = document.getElementById('edit-sql-preview');
+    previewElement.textContent = formattedSQL;
+    hljs.highlightElement(previewElement);
+});
+
+document.getElementById('edit-form').onsubmit = function(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('edit-id').value;
+    const data = {
+        name: document.getElementById('edit-name').value.trim(),
+        sql_query: document.getElementById('edit-sql-query').value.trim(),
+        description: document.getElementById('edit-description').value.trim(),
+        table_info: document.getElementById('edit-table-info').value.trim(),
+        contact: document.getElementById('edit-contact').value.trim(),
+        business_domain: document.getElementById('edit-business-domain').value.trim(),
+        business_category: document.getElementById('edit-business-category').value.trim()
+    };
+
+    if (!data.name || !data.sql_query) {
+        alert('SQL名称和SQL语句为必填项！');
+        return;
+    }
+
+    fetch(`/sql_entry/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === 'success') {
+            closeEditDialog();
+            location.reload();
+        } else {
+            alert('保存失败: ' + result.message);
+        }
+    })
+    .catch(error => {
+        alert('保存失败: ' + error);
+    });
+};
+
+function deleteEntry(id) {
+    if (confirm('确定要删除这条SQL吗？')) {
+        fetch(`/sql_entry/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        });
+    }
+}
+
+document.getElementById('sql-form').onsubmit = function(e) {
+    e.preventDefault();
+    const id = document.getElementById('entry-id').value;
+    const data = {
+        name: document.getElementById('name').value,
+        sql_query: document.getElementById('sql-query').value,
+        description: document.getElementById('description').value,
+        table_info: document.getElementById('table-info').value,
+        contact: document.getElementById('contact').value,
+        business_domain: document.getElementById('business-domain').value,
+        business_category: document.getElementById('business-category').value
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/sql_entry/${id}` : '/sql_entry/add';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('保存失败: ' + data.message);
+        }
+    });
+};
+
+function executeQuery() {
+    const query = document.getElementById('sql-input').value;
+    
+    fetch('/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({query: query})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            displayResults(data);
+        } else {
+            alert('查询错误: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('发生错误: ' + error);
+    });
+}
+
+function displayResults(data) {
+    const headers = document.getElementById('column-headers');
+    const body = document.getElementById('result-body');
+    
+    headers.innerHTML = '';
+    body.innerHTML = '';
+    
+    data.columns.forEach(column => {
+        const th = document.createElement('th');
+        th.textContent = column;
+        headers.appendChild(th);
+    });
+    
+    data.data.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            tr.appendChild(td);
+        });
+        body.appendChild(tr);
+    });
+}
+
+// 格式SQL函数
+function formatSQL(sql) {
+    return sqlFormatter.format(sql, {
+        language: 'sql',
+        uppercase: true,
+        indentWidth: 4,
+        keywordCase: 'upper'
+    });
+}
+
+// 初始化代码高亮
+document.addEventListener('DOMContentLoaded', (event) => {
+    document.querySelectorAll('pre code.sql').forEach((block) => {
+        block.textContent = formatSQL(block.textContent);
+        hljs.highlightElement(block);
+    });
+});
+
+// 格式化新建SQL的函数
+function formatNewSQL() {
+    const sqlInput = document.getElementById('sql-query');
+    const formattedSQL = formatSQL(sqlInput.value);
+    sqlInput.value = formattedSQL;
+    
+    const previewElement = document.getElementById('sql-preview');
+    previewElement.textContent = formattedSQL;
+    hljs.highlightElement(previewElement);
+}
+
+// 添加新建SQL的实时预览
+document.getElementById('sql-query').addEventListener('input', function(e) {
+    const formattedSQL = formatSQL(e.target.value);
+    const previewElement = document.getElementById('sql-preview');
+    previewElement.textContent = formattedSQL;
+    hljs.highlightElement(previewElement);
+});
+</script>
+{% endblock %} 
